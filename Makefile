@@ -3,19 +3,19 @@ up:
 
 validate:
 	aws --region us-east-1 cloudformation validate-template \
-		--template-body "file://stacks/stack.cf.json"
+		--template-body "file://stacks/stack.json"
 
 create-stack-set:
 	aws --region us-east-1 cloudformation create-stack-set --stack-set-name cf-ss-demo \
 		--parameters ParameterKey=ProjectName,ParameterValue=CFDemo \
 		--tags Key=project,Value=cf_demo Key=version,Value=$$(git rev-parse HEAD) \
 		--capabilities CAPABILITY_NAMED_IAM \
-		--template-body "file://stacks/stack.cf.json"
+		--template-body "file://stacks/stack.json"
 
 update-stack-set:
 	aws --region us-east-1 cloudformation update-stack-set --stack-set-name cf-ss-demo \
 		--tags Key=project,Value=cf_demo Key=version,Value=$$(git rev-parse HEAD) \
-		--template-body "file://stacks/stack.cf.json"
+		--template-body "file://stacks/stack.json"
 
 create-instances:
 	aws --region us-east-1 cloudformation create-stack-instances --stack-set-name cf-ss-demo \
@@ -39,3 +39,9 @@ deploy:
 
 bash:
 	docker run --rm -it -v `pwd`:/code stack-set-deployer bash
+
+create-automation:
+	aws --region us-east-1 cloudformation create-stack --stack-name stack-set-deployer \
+		--tags Key=project,Value=cf_demo Key=version,Value=$$(git rev-parse HEAD) \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--template-body "file://automation/stackset-deployer.json"

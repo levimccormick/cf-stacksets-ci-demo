@@ -1,0 +1,144 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "GithubToken": {
+      "Default": "/automation/baseline.githuboauthtoken",
+      "NoEcho": "true",
+      "Description": "GitHubServiceOAUTHToken",
+      "Type": "AWS::SSM::Parameter::Value<String>"
+    }
+  },
+  "Resources": {
+    "SourceBucket": {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "VersioningConfiguration" : {"Status": "Enabled"},
+      }
+    },
+    "StackSetDeployerCodeBuild": {
+      "Type": "AWS::CodeBuild::Project",
+      "Properties": {
+        "Artifacts": { "Type": "NO_ARTIFACTS" },
+        "Name": {
+          "Fn::Join": [
+            "-",
+            [ "StackSetDeployer", {"Ref": "AWS::Region"}, {"Ref": "AWS::AccountId"} ]
+          ]
+        },
+        "Description": "StackSetDeployer Build Job",
+        "ServiceRole": {
+          "Fn::GetAtt": [
+            "StackSetDeployerCodeBuildServiceRole",
+            "Arn"
+          ]
+        },
+        "Environment": {
+          "Type": "LINUX_CONTAINER",
+          "ComputeType": "BUILD_GENERAL1_SMALL",
+          "Image": "aws/codebuild/python:3.7.1",
+          "PrivilegedMode": true,
+          "EnvironmentVariables": [
+            {
+              "Name": "SOURCE_BUCKET",
+              "Value": {"Ref": "SourceBucket"}
+            }
+          ]
+        },
+        "Source": {
+          "Type": "GITHUB",
+          "Auth": {
+            "Type": "OAUTH",
+            "Resource": {"Ref": "GithubToken"}
+          },
+          "Location": "https://github.com/levimccormick/cf-stacksets-ci-demo.git",
+          "BuildSpec": "automation/buildspec.yml"
+        },
+        "Triggers": {
+            "Webhook": "true",
+            "FilterGroups":[[{"Pattern":"PUSH","Type":"EVENT"}, {"Pattern":"refs/heads/master","Type":"HEAD_REF"}]]
+        },
+        "TimeoutInMinutes": 120,
+        "Tags": []
+      }
+    },
+    "StackSetDeployerCodeBuildServiceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Path": "/automation/",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Service": "codebuild.amazonaws.com"},
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "CodeBuildServiceRole",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "CloudWatchLogsPolicy",
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:*"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Sid": "cloudformationpolicy",
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudformation:*"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Sid": "S3Policy",
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:GetObjectVersion",
+                    "s3:PutObject"
+                  ],
+                  "Resource": [
+                      { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "SourceBucket" } , "/*" ]]},
+                  ]
+                },
+                {
+                  "Sid": "iampolicy",
+                  "Effect": "Allow",
+                  "Action": [
+                    "iam:PassRole"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
