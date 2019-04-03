@@ -7,4 +7,5 @@ phases:
     build:
         commands:
             - aws s3 cp stacks/ s3://$SOURCE_BUCKET/stacks --recursive
+            - export template_path=$(pwd)/stacks/
             - python3 deploy.py
