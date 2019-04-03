@@ -1,7 +1,7 @@
 version: 0.2
 
 phases:
-    config:
+    install:
         commands:
             - pip install -r requirements.txt
     build:
